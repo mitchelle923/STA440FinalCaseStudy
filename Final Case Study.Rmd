@@ -1,5 +1,5 @@
 ---
-title: "STA 440 Individual Case Study"
+title: "STA 440 Final Case Study"
 author: "Mitchelle Mojekwu"
 date: "2023-12-14"
 output: pdf_document
@@ -10,7 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r data,  include = FALSE}
-SurgeryTiming <- read.csv("~/STA 440/Individual Case Study/SurgeryTiming.csv", row.names=NULL)
+SurgeryTiming <- read.csv("~/STA 440/STA440FinalCaseStudy/SurgeryTiming.csv", row.names=NULL)
 ```
 
 ```{r packages,  include = FALSE}
@@ -581,7 +581,7 @@ kable(table2, booktabs = TRUE) %>%
 
 # Methodology
 ```{r, echo=FALSE}
-SurgeryTiming <- SurgeryTiming%>% 
+modelData <- SurgeryTiming%>% 
   mutate(mort30 = case_when(mort30 == "Yes" ~ 1,
                                mort30 == "No" ~ 0,
                                TRUE ~ 0))
@@ -590,7 +590,7 @@ SurgeryTiming <- SurgeryTiming%>%
 
 ```{r}
 
-model <- glm(mort30 ~ age+hour+dow+month+ moonphase, data = SurgeryTiming, family = "binomial")
+model <- glm(mort30 ~ age+hour+dow+month+ moonphase, data = modelData, family = "binomial")
 
 # Display the summary of the model
 summary(model)
@@ -758,9 +758,8 @@ ten <-ggplot(SurgeryTiming, aes(x = dow, fill = dow)) + geom_bar() + labs(title 
 ```{r echo = FALSE}
 SurgeryTiming$month <- factor(SurgeryTiming$month, levels = c("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"))
 
-category_colors <- c("January" = "gray", "February" = "gray", "March" ="gray", "April" = "gray", "May" = "gray", "June" = "gray", "July" = "red", "August" = "red", "September" = "grey", "October"="grey", "November"= "grey", "December" = "grey")
 
-eleven <- ggplot(SurgeryTiming, aes(x = month)) + geom_bar(fill = category_colors) + labs(title = "11) Distribution of Month of Year", x = "Month of Year", y = "Count") +
+eleven <- ggplot(SurgeryTiming, aes(x = month)) + geom_bar() + labs(title = "11) Distribution of Month of Year", x = "Month of Year", y = "Count") +
   theme(aspect.ratio = 1, axis.text.x = element_text(angle = 45, hjust = 1),legend.position = "none",
         plot.title = element_text(size = 7),
         plot.subtitle = element_text(size = 6),
@@ -823,7 +822,7 @@ fourteen <- ggplot(SurgeryTiming, aes(x =mort30, y = age, fill = mort30)) + geom
 ```
 
 ```{r, echo=FALSE}
-fifteen <- ggplot(SurgeryTiming, aes(x =mort30, y = hour, fill = mort30)) + geom_boxplot() + labs(title = "15) Relationship between Hour of Operation and 30-Day Mortality", x = "30 Day Mortality", y = "Hour of Operation", fill = "30 Day Mortality") +theme(aspect.ratio = 1,legend.position = "none",
+fifteen <- ggplot(SurgeryTiming, aes(x =mort30, y = hour,fill = mort30)) + geom_boxplot() + labs(title = "15) Relationship between Hour of Operation and 30-Day Mortality", x = "30 Day Mortality", y = "Hour of Operation", fill = "30 Day Mortality") +theme(aspect.ratio = 1,legend.position = "none",
         plot.title = element_text(size = 8),
         plot.subtitle = element_text(size = 6),
         axis.text = element_text(size = 5),
@@ -839,7 +838,7 @@ plot_grid(fourteen , fifteen, ncol=2, rel_heights = c(1.1, 2))
 
 The box plots show that operations of patients that have 30-day mortality are more generally of an older age than patients who do not have 30-day mortality.
 
-*Image 14) Hour and 30 Day Morality*
+*Image 15) Hour and 30 Day Morality*
 
 The box plots show that operations of patients that have 30-day mortality tend to happen later in the day than operations of patients that do not have 30-day mortality.
 
