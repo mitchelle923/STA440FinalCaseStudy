@@ -1,0 +1,931 @@
+---
+title: "STA 440 Individual Case Study"
+author: "Mitchelle Mojekwu"
+date: "2023-12-14"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r data,  include = FALSE}
+SurgeryTiming <- read.csv("~/STA 440/Individual Case Study/SurgeryTiming.csv", row.names=NULL)
+```
+
+```{r packages,  include = FALSE}
+#| echo: false
+#| include: false
+#| label: downloading-packages
+#| message: false
+library(tidyverse)
+library(knitr)
+library(stringr)
+library(dplyr)
+library(invgamma)
+library(fitdistrplus)
+library(kableExtra)
+library(cowplot)
+library(coda)
+library(bayesplot)
+library(rstan)
+library(kableExtra)
+```
+
+# Introduction
+
+These are the three main objectives for this study:
+
+1)  Is there an association between 30-day mortality and the day of the week in which an operation occurs?
+2)  Is there an association between 30-day mortality and the time of day in which an operation occurs?
+3)  Is there an association between 30-day mortality and the month of the year in which an operation occurs?
+
+## Exploratory Data Analysis
+
+```{r age, echo = FALSE}
+age_mean <-as.character(round(mean(SurgeryTiming$age, na.rm = TRUE),2))
+age_sd <- as.character(round(sd(SurgeryTiming$age, na.rm = TRUE),2))
+age_stat <- paste(age_mean, "\u00B1",age_sd)
+```
+
+```{r gender, echo = FALSE}
+SurgeryTiming <- SurgeryTiming %>% 
+  mutate(gender = case_when(gender == "F" ~ "Female",
+                               gender == "M" ~ "Male",
+                               TRUE ~ "NA"))
+#Male
+genderM_ct <- SurgeryTiming %>% 
+  filter(gender == "Male") %>% 
+  count()
+genderM_Pct <- SurgeryTiming %>% 
+  filter(gender == "Male") %>%
+  summarize(Percent = round((n() / nrow(SurgeryTiming)*100),2))
+
+#Female
+genderF_ct <- SurgeryTiming %>% 
+  filter(gender == "Female") %>% 
+  count()
+genderF_Pct <- SurgeryTiming %>% 
+  filter(gender == "Female") %>%
+  summarize(Proportion = round((n() / nrow(SurgeryTiming)*100),2))
+
+genderM_stat <- paste(as.character(genderM_ct),"(",as.character(genderM_Pct),"%)")
+genderF_stat <- paste(as.character(genderF_ct),"(",as.character(genderF_Pct),"%)")
+```
+
+```{r race, echo = FALSE}
+#Caucasian
+raceC_ct <- SurgeryTiming %>% 
+  filter(race == "Caucasian") %>% 
+  count()
+raceC_Pct <- SurgeryTiming %>% 
+  filter(race == "Caucasian") %>%
+  summarize(Percent = round((n() / nrow(SurgeryTiming)*100),2))
+
+#African American
+raceA_ct <- SurgeryTiming %>% 
+  filter(race == "African American") %>% 
+  count()
+raceA_Pct <- SurgeryTiming %>% 
+  filter(race == "African American") %>%
+  summarize(Proportion = round((n() / nrow(SurgeryTiming)*100),2))
+
+#Other
+raceO_ct <- SurgeryTiming %>% 
+  filter(race == "Other") %>% 
+  count()
+raceO_Pct <- SurgeryTiming %>% 
+  filter(race == "Other") %>%
+  summarize(Proportion = round((n() / nrow(SurgeryTiming)*100),2))
+
+raceC_stat <- paste(as.character(raceC_ct),"(",as.character(raceC_Pct),"%)")
+raceA_stat <- paste(as.character(raceA_ct),"(",as.character(raceA_Pct),"%)")
+raceO_stat <- paste(as.character(raceO_ct),"(",as.character(raceO_Pct),"%)")
+```
+
+```{r asa status, echo = FALSE}
+#1-2
+asa_status12_ct <- SurgeryTiming %>% 
+  filter( asa_status== "I-II") %>% 
+  count()
+asa_status12_Pct <- SurgeryTiming %>% 
+  filter(asa_status== "I-II") %>%
+  summarize(Percent = round((n() / nrow(SurgeryTiming)*100),2))
+
+#3
+asa_status3_ct <- SurgeryTiming %>% 
+  filter(asa_status == "III") %>% 
+  count()
+asa_status3_Pct <- SurgeryTiming %>% 
+  filter(asa_status == "III") %>%
+  summarize(Proportion = round((n() / nrow(SurgeryTiming)*100),2))
+
+#4-6
+asa_status46_ct <- SurgeryTiming %>% 
+  filter(asa_status == "IV-VI") %>% 
+  count()
+asa_status46_Pct <- SurgeryTiming %>% 
+  filter(asa_status == "IV-VI") %>%
+  summarize(Proportion = round((n() / nrow(SurgeryTiming)*100),2))
+
+asa_status12_stat <- paste(as.character(asa_status12_ct),"(",as.character(asa_status12_Pct),"%)")
+asa_status3_stat <- paste(as.character(asa_status3_ct),"(",as.character(asa_status3_Pct),"%)")
+asa_status46_stat <- paste(as.character(asa_status46_ct),"(",as.character(asa_status46_Pct),"%)")
+```
+
+```{r bmi, echo = FALSE}
+bmi_q1 <- as.character(quantile(SurgeryTiming$bmi, 0.25, na.rm = TRUE))
+bmi_q3 <- as.character(quantile(SurgeryTiming$bmi, 0.75, na.rm = TRUE))
+bmi_med <-as.character(median(SurgeryTiming$bmi, na.rm = TRUE))
+bmi_stat <- paste(bmi_med, "[",bmi_q1,",",bmi_q3,"]")
+```
+
+```{r disease/disorder, echo = FALSE}
+#DISEASES/DISORDERS: Patients that have said diseaese/disorder
+
+#Cancer
+cancer_ct <- SurgeryTiming %>% 
+  filter(baseline_cancer== "Yes") %>% 
+  count()
+cancer_Pct <- SurgeryTiming %>% 
+  filter(baseline_cancer== "Yes") %>%
+  summarize(Percent = round((n() / nrow(SurgeryTiming)*100),2))
+cancer_stat <- paste(as.character(cancer_ct),"(",as.character(cancer_Pct),"%)")
+
+#Cardiovascular/Cerebrovascular Disease
+cvd_ct <- SurgeryTiming %>% 
+  filter(baseline_cvd== "Yes") %>% 
+  count()
+cvd_Pct <- SurgeryTiming %>% 
+  filter(baseline_cvd== "Yes") %>%
+  summarize(Percent = round((n() / nrow(SurgeryTiming)*100),2))
+cvd_stat <- paste(as.character(cvd_ct),"(",as.character(cvd_Pct),"%)")
+
+#Dimentia
+dementia_ct <- SurgeryTiming %>% 
+  filter(baseline_dementia== "Yes") %>% 
+  count()
+dementia_Pct <- SurgeryTiming %>% 
+  filter(baseline_dementia== "Yes") %>%
+  summarize(Percent = round((n() / nrow(SurgeryTiming)*100),2))
+dementia_stat <- paste(as.character(dementia_ct),"(",as.character(dementia_Pct),"%)")
+
+#Diabetes
+diabetes_ct <- SurgeryTiming %>% 
+  filter(baseline_diabetes== "Yes") %>% 
+  count()
+diabetes_Pct <- SurgeryTiming %>% 
+  filter(baseline_diabetes== "Yes") %>%
+  summarize(Percent = round((n() / nrow(SurgeryTiming)*100),2))
+diabetes_stat <- paste(as.character(diabetes_ct),"(",as.character(diabetes_Pct),"%)")
+
+#Digestive Disease
+digestive_ct <- SurgeryTiming %>% 
+  filter(baseline_digestive== "Yes") %>% 
+  count()
+digestive_Pct <- SurgeryTiming %>% 
+  filter(baseline_digestive== "Yes") %>%
+  summarize(Percent = round((n() / nrow(SurgeryTiming)*100),2))
+digestive_stat <- paste(as.character(digestive_ct),"(",as.character(digestive_Pct),"%)")
+
+#Osteoarthritis
+osteoart_ct <- SurgeryTiming %>% 
+  filter(baseline_osteoart== "Yes") %>% 
+  count()
+osteoart_Pct <- SurgeryTiming %>% 
+  filter(baseline_osteoart== "Yes") %>%
+  summarize(Percent = round((n() / nrow(SurgeryTiming)*100),2))
+osteoart_stat <- paste(as.character(osteoart_ct),"(",as.character(osteoart_Pct),"%)")
+
+#Psychiatric Disorder
+psych_ct <- SurgeryTiming %>% 
+  filter(baseline_psych== "Yes") %>% 
+  count()
+psych_Pct <- SurgeryTiming %>% 
+  filter(baseline_psych== "Yes") %>%
+  summarize(Percent = round((n() / nrow(SurgeryTiming)*100),2))
+psych_stat <- paste(as.character(psych_ct),"(",as.character(psych_Pct),"%)")
+
+#Pulmonary Disease
+pulmonary_ct <- SurgeryTiming %>% 
+  filter(baseline_pulmonary== "Yes") %>% 
+  count()
+pulmonary_Pct <- SurgeryTiming %>% 
+  filter(baseline_pulmonary== "Yes") %>%
+  summarize(Percent = round((n() / nrow(SurgeryTiming)*100),2))
+pulmonary_stat <- paste(as.character(pulmonary_ct),"(",as.character(pulmonary_Pct),"%)")
+```
+
+```{r cci, echo = FALSE}
+cci_q1 <- as.character(quantile(SurgeryTiming$baseline_charlson, 0.25, na.rm = TRUE))
+cci_q3 <- as.character(quantile(SurgeryTiming$baseline_charlson, 0.75, na.rm = TRUE))
+cci_med <-as.character(median(SurgeryTiming$baseline_charlson, na.rm = TRUE))
+cci_stat <- paste(cci_med, "[",cci_q1,",",cci_q3,"]")
+```
+
+```{r rsi mortality, echo = FALSE}
+mortality_rsi_q1 <- as.character(quantile(SurgeryTiming$mortality_rsi, 0.25, na.rm = TRUE))
+mortality_rsi_q3 <- as.character(quantile(SurgeryTiming$mortality_rsi, 0.75, na.rm = TRUE))
+mortality_rsi_med <-as.character(median(SurgeryTiming$mortality_rsi, na.rm = TRUE))
+mortality_rsi_stat <- paste(mortality_rsi_med, "[",mortality_rsi_q1,",",mortality_rsi_q3,"]")
+```
+
+```{r rsi complications, echo = FALSE}
+complication_rsi_q1 <- as.character(quantile(SurgeryTiming$complication_rsi, 0.25, na.rm = TRUE))
+complication_rsi_q3 <- as.character(quantile(SurgeryTiming$complication_rsi, 0.75, na.rm = TRUE))
+complication_rsi_med <-as.character(median(SurgeryTiming$complication_rsi, na.rm = TRUE))
+complication_rsi_stat <- paste(complication_rsi_med, "[",complication_rsi_q1,",",complication_rsi_q3,"]")
+```
+
+### Summary Statistics of Baseline Risk Factors for Patients
+
+```{r table1, echo = FALSE}
+table1 <- data.frame(
+  Predictors = c("Age", "Male", "Female", "Caucasian", "African American", "Other", "I-II", "III", "IV-VI", "Body Mass Index", "Cancer", "Cardiovascular/cerebrovascular disease", "Dementia", "Diabetes", "Digestive disease","Osteoarthritis","Psychiatric disorder", "Pulmonary disease", "Charlson Comorbidity Index", "Risk Stratification Index (30-day mortality)", "Risk Stratification Index (in-hospital complications)"),
+  "Summary Statistics" = c(age_stat, genderM_stat, genderF_stat, raceC_stat, raceA_stat, raceO_stat, asa_status12_stat,asa_status3_stat, asa_status46_stat, bmi_stat,cancer_stat, cvd_stat, dementia_stat, diabetes_stat, digestive_stat, osteoart_stat, psych_stat,pulmonary_stat, cci_stat,mortality_rsi_stat, complication_rsi_stat)
+)
+kable(table1, booktabs = TRUE) %>% 
+  pack_rows(index = c("Age(mean/SD)" = 1, "Gender (count/%)" = 2, "Race (count/%)" = 3, "ASA Physical Status (count/%)" = 3, "BMI (median/IQR)" = 1, "Diseases/Disorders (count/%)" = 8, "Indexes (median/IQR)" = 3)) %>% 
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+```
+
+```{r hour,echo = FALSE}
+#bin time into hours (6-19)
+SurgeryTiming$hour_binned <- factor(sub("([0-9]+).[0-9]+", "\\1", as.character(SurgeryTiming$hour)))
+
+hr6_ct <- SurgeryTiming %>% 
+  filter(hour_binned== "6") %>% 
+  count()
+hr6_Pct <- SurgeryTiming %>% 
+  filter(hour_binned== "6") %>%
+  summarize(Percent = round((n() / nrow(SurgeryTiming)*100),2))
+hr6_stat <- paste(as.character(hr6_ct),"(",as.character(hr6_Pct),"%)")
+
+hr7_ct <- SurgeryTiming %>% 
+  filter(hour_binned== "7") %>% 
+  count()
+hr7_Pct <- SurgeryTiming %>% 
+  filter(hour_binned== "7") %>%
+  summarize(Percent = round((n() / nrow(SurgeryTiming)*100),2))
+hr7_stat <- paste(as.character(hr7_ct),"(",as.character(hr7_Pct),"%)")
+
+hr8_ct <- SurgeryTiming %>% 
+  filter(hour_binned== "8") %>% 
+  count()
+hr8_Pct <- SurgeryTiming %>% 
+  filter(hour_binned== "8") %>%
+  summarize(Percent = round((n() / nrow(SurgeryTiming)*100),2))
+hr8_stat <- paste(as.character(hr8_ct),"(",as.character(hr8_Pct),"%)")
+
+hr9_ct <- SurgeryTiming %>% 
+  filter(hour_binned== "9") %>% 
+  count()
+hr9_Pct <- SurgeryTiming %>% 
+  filter(hour_binned== "9") %>%
+  summarize(Percent = round((n() / nrow(SurgeryTiming)*100),2))
+hr9_stat <- paste(as.character(hr9_ct),"(",as.character(hr9_Pct),"%)")
+
+hr10_ct <- SurgeryTiming %>% 
+  filter(hour_binned== "10") %>% 
+  count()
+hr10_Pct <- SurgeryTiming %>% 
+  filter(hour_binned== "10") %>%
+  summarize(Percent = round((n() / nrow(SurgeryTiming)*100),2))
+hr10_stat <- paste(as.character(hr10_ct),"(",as.character(hr10_Pct),"%)")
+
+hr11_ct <- SurgeryTiming %>% 
+  filter(hour_binned== "11") %>% 
+  count()
+hr11_Pct <- SurgeryTiming %>% 
+  filter(hour_binned== "11") %>%
+  summarize(Percent = round((n() / nrow(SurgeryTiming)*100),2))
+hr11_stat <- paste(as.character(hr11_ct),"(",as.character(hr11_Pct),"%)")
+
+hr12_ct <- SurgeryTiming %>% 
+  filter(hour_binned== "12") %>% 
+  count()
+hr12_Pct <- SurgeryTiming %>% 
+  filter(hour_binned== "12") %>%
+  summarize(Percent = round((n() / nrow(SurgeryTiming)*100),2))
+hr12_stat <- paste(as.character(hr12_ct),"(",as.character(hr12_Pct),"%)")
+
+hr13_ct <- SurgeryTiming %>% 
+  filter(hour_binned== "13") %>% 
+  count()
+hr13_Pct <- SurgeryTiming %>% 
+  filter(hour_binned== "13") %>%
+  summarize(Percent = round((n() / nrow(SurgeryTiming)*100),2))
+hr13_stat <- paste(as.character(hr13_ct),"(",as.character(hr13_Pct),"%)")
+
+hr14_ct <- SurgeryTiming %>% 
+  filter(hour_binned== "14") %>% 
+  count()
+hr14_Pct <- SurgeryTiming %>% 
+  filter(hour_binned== "14") %>%
+  summarize(Percent = round((n() / nrow(SurgeryTiming)*100),2))
+hr14_stat <- paste(as.character(hr14_ct),"(",as.character(hr14_Pct),"%)")
+
+hr15_ct <- SurgeryTiming %>% 
+  filter(hour_binned== "15") %>% 
+  count()
+hr15_Pct <- SurgeryTiming %>% 
+  filter(hour_binned== "15") %>%
+  summarize(Percent = round((n() / nrow(SurgeryTiming)*100),2))
+hr15_stat <- paste(as.character(hr15_ct),"(",as.character(hr15_Pct),"%)")
+
+hr16_ct <- SurgeryTiming %>% 
+  filter(hour_binned== "16") %>% 
+  count()
+hr16_Pct <- SurgeryTiming %>% 
+  filter(hour_binned== "16") %>%
+  summarize(Percent = round((n() / nrow(SurgeryTiming)*100),2))
+hr16_stat <- paste(as.character(hr16_ct),"(",as.character(hr16_Pct),"%)")
+
+hr17_ct <- SurgeryTiming %>% 
+  filter(hour_binned== "17") %>% 
+  count()
+hr17_Pct <- SurgeryTiming %>% 
+  filter(hour_binned== "17") %>%
+  summarize(Percent = round((n() / nrow(SurgeryTiming)*100),2))
+hr17_stat <- paste(as.character(hr17_ct),"(",as.character(hr17_Pct),"%)")
+
+hr18_ct <- SurgeryTiming %>% 
+  filter(hour_binned== "18") %>% 
+  count()
+hr18_Pct <- SurgeryTiming %>% 
+  filter(hour_binned== "18") %>%
+  summarize(Percent = round((n() / nrow(SurgeryTiming)*100),2))
+hr18_stat <- paste(as.character(hr18_ct),"(",as.character(hr18_Pct),"%)")
+
+hr19_ct <- SurgeryTiming %>% 
+  filter(hour_binned== "19") %>% 
+  count()
+hr19_Pct <- SurgeryTiming %>% 
+  filter(hour_binned== "19") %>%
+  summarize(Percent = round((n() / nrow(SurgeryTiming)*100),2))
+hr19_stat <- paste(as.character(hr19_ct),"(",as.character(hr19_Pct),"%)")
+```
+
+```{r week edit, echo = FALSE}
+SurgeryTiming <- SurgeryTiming %>% 
+  mutate(dow = case_when(dow == "Mon" ~ "Monday",
+                        dow == "Tue" ~ "Tuesday",
+                        dow == "Wed" ~ "Wednesday",
+                        dow == "Thu" ~ "Thursday",
+                        dow == "Fri" ~ "Friday"))
+```
+
+```{r week, echo = FALSE}
+dowMon_ct <- SurgeryTiming %>% 
+  filter(dow== "Monday") %>% 
+  count()
+dowMon_Pct <- SurgeryTiming %>% 
+  filter(dow== "Monday") %>%
+  summarize(Percent = round((n() / nrow(SurgeryTiming)*100),2))
+dowMon_stat <- paste(as.character(dowMon_ct),"(",as.character(dowMon_Pct),"%)")
+
+dowTue_ct <- SurgeryTiming %>% 
+  filter(dow== "Tuesday") %>% 
+  count()
+dowTue_Pct <- SurgeryTiming %>% 
+  filter(dow== "Tuesday") %>%
+  summarize(Percent = round((n() / nrow(SurgeryTiming)*100),2))
+dowTue_stat <- paste(as.character(dowTue_ct),"(",as.character(dowTue_Pct),"%)")
+
+dowWed_ct <- SurgeryTiming %>% 
+  filter(dow== "Wednesday") %>% 
+  count()
+dowWed_Pct <- SurgeryTiming %>% 
+  filter(dow== "Wednesday") %>%
+  summarize(Percent = round((n() / nrow(SurgeryTiming)*100),2))
+dowWed_stat <- paste(as.character(dowWed_ct),"(",as.character(dowWed_Pct),"%)")
+
+dowThu_ct <- SurgeryTiming %>% 
+  filter(dow== "Thursday") %>% 
+  count()
+dowThu_Pct <- SurgeryTiming %>% 
+  filter(dow== "Thursday") %>%
+  summarize(Percent = round((n() / nrow(SurgeryTiming)*100),2))
+dowThu_stat <- paste(as.character(dowThu_ct),"(",as.character(dowThu_Pct),"%)")
+
+dowFri_ct <- SurgeryTiming %>% 
+  filter(dow== "Friday") %>% 
+  count()
+dowFri_Pct <- SurgeryTiming %>% 
+  filter(dow== "Friday") %>%
+  summarize(Percent = round((n() / nrow(SurgeryTiming)*100),2))
+dowFri_stat <- paste(as.character(dowFri_ct),"(",as.character(dowFri_Pct),"%)")
+```
+
+```{r month edit, echo = FALSE}
+SurgeryTiming <- SurgeryTiming %>% 
+  mutate(month = case_when(month == "Jan" ~ "January",
+                        month == "Feb" ~ "February",
+                        month == "Mar" ~ "March",
+                        month == "Apr" ~ "April",
+                        month == "May" ~ "May",
+                        month == "Jun" ~ "June",
+                        month == "Jul" ~ "July",
+                        month == "Aug" ~ "August",
+                        month == "Sep" ~ "September",
+                        month == "Oct" ~ "October",
+                        month == "Nov" ~ "November",
+                        month == "Dec" ~ "December",
+                               TRUE ~ "NA"))
+```
+
+```{r month, echo = FALSE}
+monthJan_ct <- SurgeryTiming %>% 
+  filter(month== "January") %>% 
+  count()
+monthJan_Pct <- SurgeryTiming %>% 
+  filter(month== "January") %>%
+  summarize(Percent = round((n() / nrow(SurgeryTiming)*100),2))
+monthJan_stat <- paste(as.character(monthJan_ct),"(",as.character(monthJan_Pct),"%)")
+
+monthFeb_ct <- SurgeryTiming %>% 
+  filter(month== "February") %>% 
+  count()
+monthFeb_Pct <- SurgeryTiming %>% 
+  filter(month== "February") %>%
+  summarize(Percent = round((n() / nrow(SurgeryTiming)*100),2))
+monthFeb_stat <- paste(as.character(monthFeb_ct),"(",as.character(monthFeb_Pct),"%)")
+
+monthMar_ct <- SurgeryTiming %>% 
+  filter(month== "March") %>% 
+  count()
+monthMar_Pct <- SurgeryTiming %>% 
+  filter(month== "March") %>%
+  summarize(Percent = round((n() / nrow(SurgeryTiming)*100),2))
+monthMar_stat <- paste(as.character(monthMar_ct),"(",as.character(monthMar_Pct),"%)")
+
+monthApr_ct <- SurgeryTiming %>% 
+  filter(month== "April") %>% 
+  count()
+monthApr_Pct <- SurgeryTiming %>% 
+  filter(month== "April") %>%
+  summarize(Percent = round((n() / nrow(SurgeryTiming)*100),2))
+monthApr_stat <- paste(as.character(monthApr_ct),"(",as.character(monthApr_Pct),"%)")
+
+monthMay_ct <- SurgeryTiming %>% 
+  filter(month== "May") %>% 
+  count()
+monthMay_Pct <- SurgeryTiming %>% 
+  filter(month== "May") %>%
+  summarize(Percent = round((n() / nrow(SurgeryTiming)*100),2))
+monthMay_stat <- paste(as.character(monthMay_ct),"(",as.character(monthMay_Pct),"%)")
+
+monthJun_ct <- SurgeryTiming %>% 
+  filter(month== "June") %>% 
+  count()
+monthJun_Pct <- SurgeryTiming %>% 
+  filter(month== "June") %>%
+  summarize(Percent = round((n() / nrow(SurgeryTiming)*100),2))
+monthJun_stat <- paste(as.character(monthJun_ct),"(",as.character(monthJun_Pct),"%)")
+
+monthJul_ct <- SurgeryTiming %>% 
+  filter(month== "July") %>% 
+  count()
+monthJul_Pct <- SurgeryTiming %>% 
+  filter(month== "July") %>%
+  summarize(Percent = round((n() / nrow(SurgeryTiming)*100),2))
+monthJul_stat <- paste(as.character(monthJul_ct),"(",as.character(monthJul_Pct),"%)")
+
+monthAug_ct <- SurgeryTiming %>% 
+  filter(month== "August") %>% 
+  count()
+monthAug_Pct <- SurgeryTiming %>% 
+  filter(month== "August") %>%
+  summarize(Percent = round((n() / nrow(SurgeryTiming)*100),2))
+monthAug_stat <- paste(as.character(monthAug_ct),"(",as.character(monthAug_Pct),"%)")
+
+monthSep_ct <- SurgeryTiming %>% 
+  filter(month== "September") %>% 
+  count()
+monthSep_Pct <- SurgeryTiming %>% 
+  filter(month== "September") %>%
+  summarize(Percent = round((n() / nrow(SurgeryTiming)*100),2))
+monthSep_stat <- paste(as.character(monthSep_ct),"(",as.character(monthSep_Pct),"%)")
+
+monthOct_ct <- SurgeryTiming %>% 
+  filter(month== "October") %>% 
+  count()
+monthOct_Pct <- SurgeryTiming %>% 
+  filter(month== "October") %>%
+  summarize(Percent = round((n() / nrow(SurgeryTiming)*100),2))
+monthOct_stat <- paste(as.character(monthOct_ct),"(",as.character(monthOct_Pct),"%)")
+
+monthNov_ct <- SurgeryTiming %>% 
+  filter(month== "November") %>% 
+  count()
+monthNov_Pct <- SurgeryTiming %>% 
+  filter(month== "November") %>%
+  summarize(Percent = round((n() / nrow(SurgeryTiming)*100),2))
+monthNov_stat <- paste(as.character(monthNov_ct),"(",as.character(monthNov_Pct),"%)")
+
+monthDec_ct <- SurgeryTiming %>% 
+  filter(month== "December") %>% 
+  count()
+monthDec_Pct <- SurgeryTiming %>% 
+  filter(month== "December") %>%
+  summarize(Percent = round((n() / nrow(SurgeryTiming)*100),2))
+monthDec_stat <- paste(as.character(monthDec_ct),"(",as.character(monthDec_Pct),"%)")
+```
+
+```{r moonphase, echo = FALSE}
+newmoon_ct <- SurgeryTiming %>% 
+  filter(moonphase== "New Moon") %>% 
+  count()
+newmoon_Pct <- SurgeryTiming %>% 
+  filter(moonphase== "New Moon") %>%
+  summarize(Percent = round((n() / nrow(SurgeryTiming)*100),2))
+newmoon_stat <- paste(as.character(newmoon_ct),"(",as.character(newmoon_Pct),"%)")
+
+firstquart_ct <- SurgeryTiming %>% 
+  filter(moonphase== "First Quarter") %>% 
+  count()
+firstquart_Pct <- SurgeryTiming %>% 
+  filter(moonphase== "First Quarter") %>%
+  summarize(Percent = round((n() / nrow(SurgeryTiming)*100),2))
+firstquart_stat <- paste(as.character(firstquart_ct),"(",as.character(firstquart_Pct),"%)")
+
+fullmoon_ct <- SurgeryTiming %>% 
+  filter(moonphase== "Full Moon") %>% 
+  count()
+fullmoon_Pct <- SurgeryTiming %>% 
+  filter(moonphase== "Full Moon") %>%
+  summarize(Percent = round((n() / nrow(SurgeryTiming)*100),2))
+fullmoon_stat <- paste(as.character(fullmoon_ct),"(",as.character(fullmoon_Pct),"%)")
+
+lastquart_ct <- SurgeryTiming %>% 
+  filter(moonphase== "Last Quarter") %>% 
+  count()
+lastquart_Pct <- SurgeryTiming %>% 
+  filter(moonphase== "Last Quarter") %>%
+  summarize(Percent = round((n() / nrow(SurgeryTiming)*100),2))
+lastquart_stat <- paste(as.character(lastquart_ct),"(",as.character(lastquart_Pct),"%)")
+```
+
+### Summary Statistics of Case Frequencies (Count/%)
+
+```{r table2, echo = FALSE}
+table2 <- data.frame(
+  Predictors = c("6:00", "7:00", "8:00", "9:00", "10:00","11:00","12:00","13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday","January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December", "New Moon", "First Quarter", "Full Moon", "Last Quarter"),
+  "Summary Statistics" = c(hr6_stat,hr7_stat,hr8_stat,hr9_stat,hr10_stat,hr11_stat,hr12_stat,hr13_stat,hr14_stat,hr15_stat,hr16_stat,hr17_stat,hr18_stat,hr19_stat,dowMon_stat,dowTue_stat, dowWed_stat,dowThu_stat,dowFri_stat,monthJan_stat, monthFeb_stat,monthMar_stat, monthApr_stat,monthMay_stat, monthJun_stat,monthJul_stat, monthAug_stat, monthSep_stat, monthOct_stat, monthNov_stat, monthDec_stat, newmoon_stat, firstquart_stat,fullmoon_stat,lastquart_stat)
+)
+kable(table2, booktabs = TRUE) %>% 
+  pack_rows(index = c("Hour of Operation" = 14, "Day of the Week" = 5, "Month" = 12, "Phase of Moon" = 4)) %>% 
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+```
+
+# Methodology
+```{r, echo=FALSE}
+SurgeryTiming <- SurgeryTiming%>% 
+  mutate(mort30 = case_when(mort30 == "Yes" ~ 1,
+                               mort30 == "No" ~ 0,
+                               TRUE ~ 0))
+```
+
+
+```{r}
+
+model <- glm(mort30 ~ age+hour+dow+month+ moonphase, data = SurgeryTiming, family = "binomial")
+
+# Display the summary of the model
+summary(model)
+```
+
+
+# Results
+
+# Discussion
+
+# Appendix
+
+## Extra EDA Visuals
+
+```{r ageGraph, echo=FALSE}
+one <- ggplot(data = SurgeryTiming, aes(x = age)) + geom_density(fill = "skyblue", color = "black", alpha = 0.7) +labs(title = "1) Age Density Plot",
+       x = "Age",
+       y = "Density") +xlim(c(0,100)) +
+  theme(legend.position = "none",
+        plot.title = element_text(size = 7),
+        plot.subtitle = element_text(size = 6),
+        axis.text = element_text(size = 5),
+        axis.title = element_text(size = 6))
+
+```
+
+```{r genderGraph, echo=FALSE}
+two <- ggplot(SurgeryTiming, aes(x = gender, fill = gender)) + geom_bar() + labs(title = "2) Distribution of Gender", fill = "Gender", x = "Gender")+
+  theme(legend.position = "none",
+        plot.title = element_text(size = 7),
+        plot.subtitle = element_text(size = 6),
+        axis.text = element_text(size = 5),
+        axis.title = element_text(size = 6))
+
+```
+
+```{r raceGraph, echo=FALSE}
+three <- ggplot(SurgeryTiming, aes(x = race, fill = race)) + geom_bar() + labs(title = "3) Distribution of Race", fill = "Race", x = "Race", y = "Count")+
+  theme(legend.position = "none",
+        plot.title = element_text(size = 7),
+        plot.subtitle = element_text(size = 6),
+        axis.text = element_text(size = 5),
+        axis.title = element_text(size = 6))
+
+```
+
+```{r asaGraph, echo=FALSE}
+four <- ggplot(SurgeryTiming, aes(x = asa_status, fill = asa_status)) + geom_bar() + labs(title = "4) Distribution of ASA Physical Status", fill = "ASA Physical Status", x = "ASA Physical Status", y = "Count")+coord_flip() +
+  theme(legend.position = "none",
+        plot.title = element_text(size = 7),
+        plot.subtitle = element_text(size = 6),
+        axis.text = element_text(size = 5),
+        axis.title = element_text(size = 6))
+```
+
+```{r, echo=FALSE}
+plot_grid(one, two, three, four, ncol=2, rel_heights = c(1.1, 2))
+```
+
+*Image 1) Age*
+
+Since the distribution of the patients' age is relatively normal and unimodal and not really that skewed to the left the best summary statistic is the mean and the best metric of spread is the standard deviation.
+
+*Image 2) Gender*
+
+There appears to be a bit more operation cases done on women than men.
+
+*Image 3) Race*
+
+There are multidude more operation cases done on Caucasian patients than any other racial demographics.
+
+*Image 4) ASA Physical Status*
+
+\*Note: ASA classification uses a grading system of I (one) through V (five) I identifying a person in good health and V as a person with a severe, life-threatening condition. The sixth (VI) status identifies deceased organ donors.
+
+Most patients of operation cases reside in the I-II ASA status and then the III status comes in a close second. There are not many patients that reside in the IV-VI status.
+
+```{r echo=FALSE}
+five <- ggplot(data = SurgeryTiming, aes(x = bmi)) + geom_density(fill = "purple", color = "black", alpha = 0.7) +labs(title = "5) BMI Density Plot",
+       x = "BMI",
+       y = "Density")+
+  theme(legend.position = "none",
+        plot.title = element_text(size = 7),
+        plot.subtitle = element_text(size = 6),
+        axis.text = element_text(size = 5),
+        axis.title = element_text(size = 6))
+```
+
+```{r echo=FALSE}
+six <- ggplot(SurgeryTiming, aes(x = baseline_charlson)) + geom_bar() + labs(title = "6) Distribution of Charlson Comorbidity Index", x = "Charslon Comorbidity Index", y = "Count") +
+  theme(legend.position = "none",
+        plot.title = element_text(size = 7),
+        plot.subtitle = element_text(size = 6),
+        axis.text = element_text(size = 5),
+        axis.title = element_text(size = 6))
+```
+
+```{r echo=FALSE}
+seven <- ggplot(data = SurgeryTiming, aes(x = mortality_rsi)) + geom_density(fill = "pink", color = "black", alpha = 0.7) +labs(title = "7) Distribution Risk Stratification Index (30-Day Mortality)",
+       x = "Risk Stratification Index (30-Day Mortality)",
+       y = "Density") +
+  theme(legend.position = "none",
+        plot.title = element_text(size = 7),
+        plot.subtitle = element_text(size = 6),
+        axis.text = element_text(size = 5),
+        axis.title = element_text(size = 6))
+```
+
+```{r echo=FALSE}
+eight <- ggplot(data = SurgeryTiming, aes(x = complication_rsi)) + geom_density(fill = "cornflowerblue", color = "black", alpha = 0.7) +labs(title = "8) Distribution of Risk Stratification Index (In-Hospital Complications)",
+       x = "Risk Stratification Index (In-Hospital Complications)",
+       y = "Density") +
+  theme(legend.position = "none",
+        plot.title = element_text(size = 7),
+        plot.subtitle = element_text(size = 6),
+        axis.text = element_text(size = 5),
+        axis.title = element_text(size = 6))
+```
+
+```{r, echo=FALSE}
+plot_grid(five, six, seven, eight, ncol=2, rel_heights = c(1.1, 2))
+```
+
+*Image 5) BMI*
+
+Since the distribution of the patients' BMI is slightly skewed to the right the best summary statistic is the median and the best metric of spread is the IQR.
+
+*Image 6) Charlson Comorbidity Index*
+
+\*Note: The Charlson comorbidity index (CCI) is the most widely used comorbidity index used to determine survival rate (1yr and 10yr) in patient with multiple comorbidities. As the CCI level increases the probability of one year of survival decreases.
+
+Since the distribution of the patients' Charlson Comorbidity Index is skewed to the right the best summary statistic is the median and the best metric of spread is the IQR.
+
+*Image 7) Risk Stratification Index (30-Day Mortality)*
+
+\*Note: The Risk Stratification Index (RSI) is an open source, nationally validated, risk stratification methodology that permits outcomes such as duration of hospitalization and mortality to be compared equally across institutions.
+
+The density chart of the distribution of RSI (30-day mortality) is multimodal and skewed to the left so the median and IQR would be more accurate measures of center and spread.
+
+*Image 8) Risk Stratification Index (In-Hospital Complications)*
+
+The density chart of the distribution of RSI (in-hospital complications) is multimodal and skewed to the left so the median and IQR would be more accurate measures of center and spread.
+
+```{r echo = FALSE}
+nine <- ggplot(data = SurgeryTiming, aes(x = hour)) + geom_density(fill = "coral", color = "black", alpha = 0.7) +labs(title = "9) Distribution of Operation Time",
+       x = "Operation Time)",
+       y = "Density") +
+  theme(legend.position = "none",
+        plot.title = element_text(size = 7),
+        plot.subtitle = element_text(size = 6),
+        axis.text = element_text(size = 5),
+        axis.title = element_text(size = 6))
+```
+
+```{r echo = FALSE}
+SurgeryTiming$dow <- factor(SurgeryTiming$dow, levels = c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday"))
+ten <-ggplot(SurgeryTiming, aes(x = dow, fill = dow)) + geom_bar() + labs(title = "10) Distribution of Day of the Week", fill = "Day of the Week", x = "Day of the Week", y = "Count") + theme(aspect.ratio = 1,axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(legend.position = "none",
+        plot.title = element_text(size = 7),
+        plot.subtitle = element_text(size = 6),
+        axis.text = element_text(size = 5),
+        axis.title = element_text(size = 6))
+```
+
+```{r echo = FALSE}
+SurgeryTiming$month <- factor(SurgeryTiming$month, levels = c("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"))
+
+category_colors <- c("January" = "gray", "February" = "gray", "March" ="gray", "April" = "gray", "May" = "gray", "June" = "gray", "July" = "red", "August" = "red", "September" = "grey", "October"="grey", "November"= "grey", "December" = "grey")
+
+eleven <- ggplot(SurgeryTiming, aes(x = month)) + geom_bar(fill = category_colors) + labs(title = "11) Distribution of Month of Year", x = "Month of Year", y = "Count") +
+  theme(aspect.ratio = 1, axis.text.x = element_text(angle = 45, hjust = 1),legend.position = "none",
+        plot.title = element_text(size = 7),
+        plot.subtitle = element_text(size = 6),
+        axis.text = element_text(size = 5),
+        axis.title = element_text(size = 6))
+```
+
+```{r echo = FALSE}
+SurgeryTiming$moonphase <- factor(SurgeryTiming$moonphase, levels = c("New Moon", "February", "First Quarter", "Full Moon", "Last Quarter"))
+
+twelve <- ggplot(SurgeryTiming, aes(x = moonphase)) + geom_bar() + labs(title = "12) Distribution of Moon Phases", x = "Phase of Moon", y = "Count") +
+  theme(aspect.ratio = 1, axis.text.x = element_text(angle = 45, hjust = 1),legend.position = "none",
+        plot.title = element_text(size = 7),
+        plot.subtitle = element_text(size = 6),
+        axis.text = element_text(size = 5),
+        axis.title = element_text(size = 6))
+```
+
+```{r, echo=FALSE}
+plot_grid(nine, ten, eleven, twelve, ncol=2, rel_heights = c(1.1, 2))
+```
+
+*Image 9) Operation Hour*
+
+The distribution is bimodal with a huge concentration of operation hours at around 8:00 am and a much smaller concentration at 12:30 pm.
+
+*Image 10) Day of the Week*
+
+The distribution of the days the of operation cases tend have a higher concentration in the beginning of the week.
+
+*Image 11) Month of the Year*
+
+The distribution of the months of operation cases show peaks in June and near the end of the summer (August and September).
+
+*Image 12) Phase of Moon*
+
+The distribution of the moon phases of operation cases show a relatively uniform distribution with the least cases occuring during new moon phases.
+
+```{r, echo=FALSE}
+ggplot(SurgeryTiming, aes(x = ahrq_ccs)) + geom_bar() + labs(title = "13) Distribution of AHRQ-CCS Procedure Category", x = "AHRQ-CCS Procedure Category", y = "Count") + 
+  theme(aspect.ratio = 1,
+        axis.text.x = element_text( hjust = 1, size=5), 
+        plot.title = element_text(size = 9),
+        legend.position = "none",
+        plot.subtitle = element_text(size = 6),
+        axis.text = element_text(size = 5),
+        axis.title = element_text(size = 6)) +coord_flip()
+```
+
+*Image 13) AHRQ-CCS Procedure Category*
+
+The distribution of procedure type shows there are multiple sporadic procedure types that have very high concentrations of operations and multiple that have low concentrations.
+
+```{r, echo=FALSE}
+fourteen <- ggplot(SurgeryTiming, aes(x =mort30, y = age, fill = mort30)) + geom_boxplot() + labs(title = "14) Relationship between Age and 30-Day Mortality", x = "30 Day Mortality", y = "Age", fill = "30 Day Mortality") +theme(aspect.ratio = 1,legend.position = "none",
+        plot.title = element_text(size = 8),
+        plot.subtitle = element_text(size = 6),
+        axis.text = element_text(size = 5),
+        axis.title = element_text(size = 6))
+```
+
+```{r, echo=FALSE}
+fifteen <- ggplot(SurgeryTiming, aes(x =mort30, y = hour, fill = mort30)) + geom_boxplot() + labs(title = "15) Relationship between Hour of Operation and 30-Day Mortality", x = "30 Day Mortality", y = "Hour of Operation", fill = "30 Day Mortality") +theme(aspect.ratio = 1,legend.position = "none",
+        plot.title = element_text(size = 8),
+        plot.subtitle = element_text(size = 6),
+        axis.text = element_text(size = 5),
+        axis.title = element_text(size = 6))
+
+```
+
+```{r, echo=FALSE}
+plot_grid(fourteen , fifteen, ncol=2, rel_heights = c(1.1, 2))
+```
+
+*Image 14) Age and 30 Day Morality*
+
+The box plots show that operations of patients that have 30-day mortality are more generally of an older age than patients who do not have 30-day mortality.
+
+*Image 14) Hour and 30 Day Morality*
+
+The box plots show that operations of patients that have 30-day mortality tend to happen later in the day than operations of patients that do not have 30-day mortality.
+
+```{r, echo=FALSE}
+sixteen <- ggplot(data=SurgeryTiming, aes(x=mort30,fill = mort30)) +
+    geom_bar() + labs(title = '16) Relationship between Day of Operation & 30-Day Mortality', x = '30-Day Mortality', y = 'Count', fill = "30 Day Mortality")+facet_wrap(~dow)+theme(aspect.ratio = 1,legend.position = "none",
+        plot.title = element_text(size = 7),
+        plot.subtitle = element_text(size = 6),
+        axis.text = element_text(size = 5),
+        axis.title = element_text(size = 6))
+```
+
+```{r, echo=FALSE}
+seventeen <- ggplot(data=SurgeryTiming, aes(x=mort30,fill = mort30)) +
+    geom_bar() + labs(title = '17) Relationship between Month of Operation & 30-Day Mortality', x = '30-Day Mortality', y = 'Count', fill = "30 Day Mortality")+facet_wrap(~month) +theme(aspect.ratio = 1,legend.position = "none",
+        plot.title = element_text(size = 7),
+        plot.subtitle = element_text(size = 6),
+        axis.text = element_text(size = 5),
+        axis.title = element_text(size = 6))
+```
+
+```{r, echo=FALSE}
+plot_grid(sixteen , seventeen, ncol=2, rel_heights = c(1.1, 2))
+```
+
+```{r, echo=FALSE}
+dow_mort <- SurgeryTiming %>%
+  group_by(dow, mort30) %>%
+  summarise(
+    Count = n())
+dow_mort %>% 
+  kable(digits = 5)
+
+#Mon
+30/(30+6975)
+#Tues
+32/(32+6976)
+#Wed
+21/(21+6245)
+#Thurs
+24/(24+5611)
+#Fri
+31/(31+6056)
+```
+
+
+```{r, echo=FALSE}
+month_mort <- SurgeryTiming %>%
+  group_by(month, mort30) %>%
+  summarise(
+    Count = n())
+month_mort %>% 
+  kable(digits = 3)
+
+#Jan
+19/(19+2651)
+#Feb
+17/(17+2489)
+#March
+12/(12+2685)
+#Apr
+12/(12+2686)
+#May
+10/(10+2644)
+#June
+14/(14+2980)
+#July
+12/(12+2313)
+#Aug
+9/(9+3168)
+#Sept
+16/(16+3192)
+#Oct
+8/(8+2681)
+#Nov
+5/(5+2539)
+#Dec
+4/(4+1835)
+```
+*Image 16) Day of Week and 30 Day Mortality*
+
+The day with the highest proportion of 30-day mortality cases is Friday, then Tuesday, then Monday, then Thursday, then Wednesday.
+
+*Image 17) Month and 30 Day Mortality*
+
+The month with the highest proportion of 30-day mortality cases is January, then February, then July.
+
+
+## Work Cited
