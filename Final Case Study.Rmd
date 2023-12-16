@@ -977,9 +977,9 @@ emplogitplot1(mort30 ~ hour, data = modelData, ngroups = 10)
 emplogitplot1(complication ~ hour, data = modelData, ngroups = 10)
 ```
 
-*Image 19*
+*Image 19) Multicollinearity: Correlation Matrix*
 
-```{r}
+```{r, echo=FALSE}
 cor_matrix <- cor(modelData[, c("mortality_rsi","ccsMort30Rate","hour","age","bmi","baseline_charlson")])
 # Print the correlation matrix
 cor_matrix %>% 
