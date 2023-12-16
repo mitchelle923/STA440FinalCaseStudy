@@ -1,5 +1,5 @@
 ---
-title: "STA 440 Final Case Study"
+title: "Temporal Patterns in Surgical Patient Outcomes"
 author: "Mitchelle Mojekwu"
 date: "2023-12-14"
 output: pdf_document
@@ -34,13 +34,29 @@ library(kableExtra)
 
 # Introduction
 
-These are the three main objectives for this study:
+**Context and Background**
 
-1)  Is there an association between 30-day mortality and the day of the week in which an operation occurs?
-2)  Is there an association between 30-day mortality and the time of day in which an operation occurs?
-3)  Is there an association between 30-day mortality and the month of the year in which an operation occurs?
+Since the rise of the coronavirus disease (COVID-19), there has been a surge in the concern of a complication in healthcare industries worldwide. The shortage of healthcare professionals has been an increasingly discussed topic among citizens and healthcare providers alike as millions of people experienced the threat of a global pandemic. In general, the scarcity of medical industry professionals has led to a decline in the quality and availability of care in hospitals. (Džakula and Danko, 2022 ) It is widely known and studied that insufficient amounts of sleep and extended work shifts risk negative impacts on one's cognitive and motor performance. (Alhola and Päivi, 2007 )Due to the risk of underperformance of healthcare workers, particularly surgeons, there has been a push to limit resident work hours to mitigate potential errors that may impact patients.
 
-## Exploratory Data Analysis
+Given that the healthcare sector is one of high stakes that often demands medical professionals to work extensive shifts due to short staff and increased patient attendance, the risk of long work hours cannot be ignored. Furthermore, just as extended hours of work may lead to fatigue and a compromise in cognitive and physical tasks, typical workweek progression may lead to similar results. (Sessler et al., 2011) This study aims to address the association between multiple time-related factors and the resulting outcome of patients' operation cases.
+
+These are the four main objectives of this case study (Sessler et al., 2011):
+
+1)  Is there any association between whether or not a patient's operation results in in-hospital complications and the day of the week in which an operation occurs?
+
+2)  Is there any association between whether or not a patient's operation results in 30-day mortality and the day of the week in which an operation occurs?
+
+3)  Is there any association between whether or not a patient's operation results in in-hospital complications and the time of day in which an operation occurs?
+
+4)  Is there any association between whether or not a patient's operation results in 30-day mortality and the time of day in which an operation occurs?
+
+Answering these four questions will help healthcare industry leaders better understand the possible critical risks of progression in time from morning to evening as well as progression in days of the week from Monday to Friday of surgeons on patient operation outcomes, particularly mortality and complication risks.
+
+**The Data**
+
+The data for this study was collected and provided by the Cleveland Clinic Lerner Research Institute. The data is formatted as patient-level observations that comprise 32,001 surgical patients from the Cleveland Clinic between January 2005 and September 2010. The data collection window consisted of the hours of 6 am to 7 pm during the work weekdays. Variables in the dataset include the patient's age, gender, race, ASA physical status, body mass index, United States Agency for Healthcare Research and Quality's Clinical Classifications Software (AHRQ-CCS) Procedure Category, Charlson Comorbidity Index, 30-Day Mortality Risk Stratification Index, In-Hospital Complications Risk Stratification Index, overall incidence of 30-day Mortality for each AHRQ-CCS procedure category, overall Incidence of In-hospital Complications for each AHRQ-CCS procedure category, operation hour, day of the week, month of the year, phase of the moon, whether or not the patient resulted in having 30-day mortality, whether or not the patient resulted in having in-hospital complications, and whether or not the patient has the following diseases/disorders: cancer, cardiovascular/cerebrovascular disease, dementia, diabetes, digestive disease, osteoarthritis, psychiatric disorder, pulmonary disease. (some variable definitions provided in Appendix)
+
+**Exploratory Data Analysis**
 
 ```{r age, echo = FALSE}
 age_mean <-as.character(round(mean(SurgeryTiming$age, na.rm = TRUE),2))
@@ -249,7 +265,7 @@ kable(table1, booktabs = TRUE) %>%
   kable_styling(font_size = 6, latex_options = "HOLD_position")
 ```
 
-```{r hour,echo = FALSE}
+```{r hour, echo=FALSE}
 #bin time into hours (6-19)
 SurgeryTiming$hour_binned <- factor(sub("([0-9]+).[0-9]+", "\\1", as.character(SurgeryTiming$hour)))
 
@@ -580,13 +596,13 @@ kable(table2, booktabs = TRUE) %>%
 ```
 
 # Methodology
+
 ```{r, echo=FALSE}
 modelData <- SurgeryTiming%>% 
   mutate(mort30 = case_when(mort30 == "Yes" ~ 1,
                                mort30 == "No" ~ 0,
                                TRUE ~ 0))
 ```
-
 
 ```{r}
 
@@ -595,7 +611,6 @@ model <- glm(mort30 ~ age+hour+dow+month+ moonphase, data = modelData, family = 
 # Display the summary of the model
 summary(model)
 ```
-
 
 # Results
 
@@ -884,7 +899,6 @@ dow_mort %>%
 31/(31+6056)
 ```
 
-
 ```{r, echo=FALSE}
 month_mort <- SurgeryTiming %>%
   group_by(month, mort30) %>%
@@ -918,6 +932,7 @@ month_mort %>%
 #Dec
 4/(4+1835)
 ```
+
 *Image 16) Day of Week and 30 Day Mortality*
 
 The day with the highest proportion of 30-day mortality cases is Friday, then Tuesday, then Monday, then Thursday, then Wednesday.
@@ -925,6 +940,5 @@ The day with the highest proportion of 30-day mortality cases is Friday, then Tu
 *Image 17) Month and 30 Day Mortality*
 
 The month with the highest proportion of 30-day mortality cases is January, then February, then July.
-
 
 ## Work Cited
