@@ -45,19 +45,15 @@ Given that the healthcare sector is one of high stakes that often demands medica
 
 These are the four main objectives of this case study (Sessler et al., 2011):
 
-1)  Is there any association between whether or not a patient's operation results in in-hospital complications and the day of the week in which an operation occurs?
+1)    Is there any association between whether or not a patient's operation results in 30-day mortality and the time of the day in which the operation occurs? How about the day of the week?
 
-2)  Is there any association between whether or not a patient's operation results in 30-day mortality and the day of the week in which an operation occurs?
+2)    Is there any association between whether or not a patient experiences in-hospital complications and the time of day in which the operation occurs? How about the day of the day of the week?
 
-3)  Is there any association between whether or not a patient's operation results in in-hospital complications and the time of day in which an operation occurs?
-
-4)  Is there any association between whether or not a patient's operation results in 30-day mortality and the time of day in which an operation occurs?
-
-Answering these four questions will help healthcare industry leaders better understand the possible critical risks of progression in time from morning to evening as well as progression in days of the week from Monday to Friday of surgeons on patient operation outcomes, particularly mortality and complication risks.
+Answering these objectives will help healthcare industry leaders better understand the possible critical risks of progression in time from morning to evening as well as progression in days of the week from Monday to Friday of surgeons on patient operation outcomes, particularly mortality and complication risks.
 
 **The Data**
 
-The data for this study was collected and provided by the Cleveland Clinic Lerner Research Institute. The data is formatted as patient-level observations that comprise 32,001 surgical patients from the Cleveland Clinic between January 2005 and September 2010. The data collection window consisted of the hours of 6 am to 7 pm during the work weekdays. It is important to note that the surgical procedures were limited to elective operations since urgent or semi-urgent procedures, which are riskier, are often performed later in the workday even without being offically labeled as emergencies. The variables included in the dataset are the patient's age, gender, race, ASA physical status, body mass index, United States Agency for Healthcare Research and Quality's Clinical Classifications Software (AHRQ-CCS) Procedure Category, Charlson Comorbidity Index, 30-Day Mortality Risk Stratification Index, In-Hospital Complications Risk Stratification Index, overall incidence of 30-day Mortality for each AHRQ-CCS procedure category, overall Incidence of In-hospital Complications for each AHRQ-CCS procedure category, operation hour, day of the week, month of the year, phase of the moon, whether or not the patient resulted in having 30-day mortality, whether or not the patient resulted in having in-hospital complications, and whether or not the patient has the following diseases/disorders: cancer, cardiovascular/cerebrovascular disease, dementia, diabetes, digestive disease, osteoarthritis, psychiatric disorder, pulmonary disease. (some variable definitions provided in Appendix)
+The data for this study was collected and provided by the Cleveland Clinic Lerner Research Institute. The data is formatted as patient-level observations that comprise of 32,001 surgical patients from the Cleveland Clinic between January 2005 and September 2010. The data collection window consisted of the hours of 6 am to 7 pm during the work weekdays. It is important to note that the surgical procedures were limited to elective operations since urgent or semi-urgent procedures, which are riskier, are often performed later in the workday even without being offically labeled as emergencies. The variables included in the dataset are the patient's age, gender, race, ASA physical status, body mass index, United States Agency for Healthcare Research and Quality's Clinical Classifications Software (AHRQ-CCS) Procedure Category, Charlson Comorbidity Index, 30-Day Mortality Risk Stratification Index, In-Hospital Complications Risk Stratification Index, overall incidence of 30-day Mortality for each AHRQ-CCS procedure category, overall Incidence of In-hospital Complications for each AHRQ-CCS procedure category, operation hour, day of the week, month of the year, phase of the moon, whether or not the patient resulted in having 30-day mortality, whether or not the patient resulted in having in-hospital complications, and whether or not the patient has the following diseases/disorders: cancer, cardiovascular/cerebrovascular disease, dementia, diabetes, digestive disease, osteoarthritis, psychiatric disorder, pulmonary disease. (some variable definitions provided in Appendix)
 
 **Exploratory Data Analysis**
 
@@ -642,7 +638,7 @@ $where ~ Y_i|X_i\beta \sim Bernoulli(\pi_i)$
 
 $\epsilon_i\sim N(0,\sigma)$
 
-The coefficients are $\beta_0$ for the intercept, $\beta_1$ for the Risk Stratification Index (30-Day Mortality)/(In-Hospital Complication), $\beta_2$ for the Overall Incidence of 30-Day Mortality/In-Hospital Complication for Each AHRQ-CCS Procedure Category, $\beta_3$ for operation hour, $\beta_4$-$\beta_7$ for the days of the week with the baseline being Friday, $\beta_8$ for patients' age, $\beta_9$ for patients' body mass index, $\beta_{10}$-$\beta_{12}$ for ASA Physical Status,$\beta_{13}$ for Charlson Comorbidity Index, and $\epsilon_i$ for the residual error all for the $i^{th}$ patient.
+The coefficients are $\beta_0$ for the intercept, $\beta_1$ for the Risk Stratification Index (30-Day Mortality)/(In-Hospital Complication), $\beta_2$ for the Overall Incidence of 30-Day Mortality/In-Hospital Complication for Each AHRQ-CCS Procedure Category, $\beta_3$ for operation hour, $\beta_4$-$\beta_7$ for the days of the week with the baseline being Friday, $\beta_8$ for patients' age, $\beta_9$ for patients' body mass index, $\beta_{10}$-$\beta_{12}$ for ASA Physical Status,$\beta_{13}$ for Charlson Comorbidity Index, and $\epsilon_i$ for the residual error for the $i^{th}$ patient.
 
 **Model Assumptions and Diagnostics**
 
@@ -673,6 +669,9 @@ kable(output1, digits = 3, caption = "30-Day Mortality Model Coefficients/Summar
  kable_styling(latex_options = "HOLD_position", font_size=7)
 ```
 
+The results of the model in which 30-day mortality is the response variable show that the only statistically significant predictors in the model are the Risk Stratification Index (30-day mortality), the Overall Incidence of 30-Day Mortality for each AHRQ-CCS Procedure Category, and the patient's age. This model shows that after adjusting for critical risk factors, the variability of whether a patient experiences 30-day mortality after a surgical case is not significantly explained by the day of the week or the hour in which the operation took place. In terms of the `hour` of operation coefficient, the model shows that for each additional hour in a workday, the log-odds of a patient experiencing 30-day mortality after an operation are expected to increase by 0.043, holding all other predictors constant. Furthermore, for each additional hour in a workday, the odds of a patient experiencing 30-day mortality after an operation are expected to multiply by a factor of approximately 1.044 (exp(0.043)) holding all other predictors constant. This means that the general odds a patient results in 30-day mortality does increase as the workday day progresses. Since the baseline for the `day of the week` variable is Friday, it is best to interpret the Monday coefficient to gauge the differences between the beginning of the week and the end of the week. The log-odds of a patient having 30-day mortality after an operation are expected to be 0.088 less on Mondays than on Fridays, holding other predictors constant. Furthermore, the odds of a patient having 30-day mortality on Mondays is expected be 0.916 (exp(-0.088)) times the odds of than on Fridays, holding all else constant. This means the odds of a patient having 30-day mortality are a bit lower in the beginning of the week than the end of the week.
+
+
 ```{r, echo=FALSE}
 set.seed(123)
 model2 <- glm(complication ~ complication_rsi+ccsComplicationRate+hour+dow+age+bmi+asa_status+baseline_charlson, data = modelData, family = "binomial")
@@ -686,7 +685,38 @@ kable(output2, digits = 3, caption = "In-Hospital Complications Model Coefficien
  kable_styling(latex_options = "HOLD_position", font_size=7)
 ```
 
+The results of the model in which in-hospital complication is the response variable show that the only statistically significant predictors in the model are the Risk Stratification Index (in-hospital complication), the Overall Incidence of In-Hospital Complication for each AHRQ-CCS Procedure Category, the days of the week Tuesday and Friday, the patient's age, and the patient's BMI. This model actually shows that after adjusting for critical risk factors, the variability of whether a patient experiences in-hospital complication is somewhat significantly explained by the day of the week but not the hour in which the operation took place. In terms of the `hour` of operation coefficient, the model shows that for each additional hour in a workday, the log-odds of a patient experiencing in-hospital complication are expected to decrease by 0.004, holding all other predictors constant. Furthermore, for each additional hour in a workday, the odds of a patient experiencing in-hospital complication are expected to multiply by a factor of approximately 0.996 (exp(-0.004)) holding all other predictors constant. This means that the general odds a patient results in in-hospital complication roughly stays the same as the workday day progresses. In terms of the Monday `day of the week` variable, the log-odds of a patient having in-hospital complication are expected to be 0.061 less on Mondays than on Fridays, holding other predictors constant. Furthermore, the odds of a patient having in-hospital complications on Mondays is expected be about 0.941 (exp(-0.061)) times the odds of on Fridays, holding all else constant. This means the odds of a patient having in-hospital complications are slightly lower in the beginning of the week than the end of the week.
+
 # Discussion
+
+**1) Hour of Operation & 30-Day Mortality**
+
+In terms of EDA, the box plots displaying the relationship between the hour of operation and the status of 30-day mortality in Image 15A) show that the patients whose operations result in a 30-day mortality status had operations that took place in hours of a slightly later range than patients whose operations did not result in a 30-day mortality status.(Appendix: Image 15A) Also recalling the *Summary Statistics of Case Frequencies* table above, the distribution of most operations happened in the morning, so it is noteworthy that even though a small proportion of operation cases happened later in the day, they still largely comprised of patients resulting in a 30-day mortality cases in comparison to patients who did not result in 30-day mortality. (Appendix: Image 9) Though the logistic regression model deemed the hour of operation not a statistically significant predictor in the variability of patients' 30-day mortality status, the model still showed that the general odds a patient results in 30-day mortality does increase as the workday day progresses. Overall, this shows that there is an association with the hour of an operation and whether or not a patient results in having 30-mortality. Though this association is not statistically significant, given the context of operations being high stakes and the response variable being a critical measure of ones' life, it is imperative to highlight the relationship found between hour of operation and 30-day mortality.
+
+**1) Day of Week & 30-Day Mortality**
+
+In the EDA, the bar plots displaying the relationship between the day of the week and the status of 30-day mortality in Image 16A) show slight decreases in the number of patients who do not have 30-day mortality as the week progresses up until Friday.(Appendix: Image 16A) But it is also note worthy that this pattern matches the decrease in the total patient population (Appendix:Image 10) as well as the decrease in percentages of the total patient population as seen in the *Summary Statistics of Case Frequencies* table above. This means the EDA shows there is not a visible relationship between the 30-day mortality status and the day of the week, only the number of patients and the day of the week. The logistic model deemed the day of the week not a statistically significant predictor in the variability of patients' 30-day mortality status but the model still showed there was a slight decrease in the odds of a patient having 30-day mortality as the week progresses. This may be worth noting given the context of this study being a high risk environment.
+
+**2) Hour of Operation & In-Hospital Complications**
+
+The EDA of Image 15B) shows box plots of the relationship between the hour of operation and the status of patients' in-hospital complications. This image shows that the hour of operations for both statuses take place at relatively the same range of time. (Appendix: Image 15B) This means that there is not a very visible association with the time of operation and whether or not a patient experiences in-hospital complications. The logistic regression model did not express the hour of operation to be a statistically significant predictor in the variability of patients' in-hospital complication status. The model also expressed that the general odds a patient experiences in-hospital complication roughly stays the same as the workday progresses which is reflected in the EDA. Overall, this shows that there is not a noteworthy association between the the hour of an operation and whether or not a patient experiences in hospital complications.
+
+**2) Day of Week & In-Hospital Complications**
+
+In terms of EDA Image 16B) shows bar plots of the relationship between the day of the week and the status of in-hospital complication. There looks to be a decreasing number of patients without in-hospital complication as the week goes on up until Friday. The visual also shows slight decreases in the number of patients without in-hospital complications as the week progresses besides on Wednesday (Appendix: Image 16B) The pattern in the number of patients without in-hospital complications aligns with the pattern in the total patient population by day of the week (Appendix:Image 10) as well as the pattern in percentages of the total patient population as seen in the *Summary Statistics of Case Frequencies* table above. But the pattern in the number of patients with in-hospital complications among the different days of the week display some differences to the total patient population. This means the EDA shows there is somewhat of a visible relationship between the in-hospital complications status and the day of the week. This aligns with the logistic regression model that shows Tuesday and Friday being statistically significant predictors of the variability of in-hospital complication where the odds of a patient experiencing in-hospital complication is lower on Tuesdays than on Fridays. Overall, this shows that there is a significant associations between the day of the week of the operation and whether or not a patient experiences in hospital complications.
+
+**Methodology Evaluation**
+- include accuracy tests of model
+
+Was your methodology fully appropriate? What alternative techniques might have been useful?
+
+**Limitation**
+
+Are there any issues with reliability or validity of the data?
+
+**Implications and Conclusions**
+
+What would you do differently if you had to approach the study again? What additional data sources, variables, or techniques might help you create a stronger manuscript?
 
 # Appendix
 
@@ -905,12 +935,12 @@ fourteenA <- ggplot(SurgeryTiming, aes(x =mort30, y = age, fill = mort30)) + geo
         plot.title = element_text(size = 6),
         plot.subtitle = element_text(size = 6),
         axis.text = element_text(size = 5),
-        axis.title = element_text(size = 6))
+        axis.title = element_text(size = 6))+coord_flip()
 fourteenB <- ggplot(SurgeryTiming, aes(x =complication, y = age, fill = complication)) + geom_boxplot() + labs(title = "14B) Age vs In-Hospital Complication", x = "In-Hospital Complication", y = "Age", fill = "In-Hospital Complication") +theme(aspect.ratio = 1,legend.position = "none",
         plot.title = element_text(size = 6),
         plot.subtitle = element_text(size = 6),
         axis.text = element_text(size = 5),
-        axis.title = element_text(size = 6))
+        axis.title = element_text(size = 6)) +coord_flip()
 ```
 
 ```{r, echo=FALSE}
@@ -918,12 +948,12 @@ fifteenA <- ggplot(SurgeryTiming, aes(x =mort30, y = hour,fill = mort30)) + geom
         plot.title = element_text(size = 6),
         plot.subtitle = element_text(size = 6),
         axis.text = element_text(size = 5),
-        axis.title = element_text(size = 6))
+        axis.title = element_text(size = 6))+coord_flip()
 fifteenB <- ggplot(SurgeryTiming, aes(x =complication, y = hour,fill = complication)) + geom_boxplot() + labs(title = "15B) Hour of Operation vs In-Hospital Complication", x = "In-Hospital Complication", y = "Hour of Operation", fill = "In-Hospital Complication") +theme(aspect.ratio = 1,legend.position = "none",
         plot.title = element_text(size = 6),
         plot.subtitle = element_text(size = 6),
         axis.text = element_text(size = 5),
-        axis.title = element_text(size = 6))
+        axis.title = element_text(size = 6)) +coord_flip()
 
 ```
 
@@ -987,3 +1017,8 @@ cor_matrix %>%
 ```
 
 ## Work Cited
+-   Alhola, Paula, and Päivi Polo-Kantola. “Sleep deprivation: Impact on cognitive performance.” Neuropsychiatric disease and treatment vol. 3,5 (2007): 553-67.
+-   Džakula, Aleksandar, and Danko Relić. “Health workforce shortage - doing the right things or doing things right?.” Croatian Medical Journal vol. 63,2 (2022): 107-109. doi:10.3325/cmj.2022.63.107
+-   Sessler et al.“Operation Timing and 30-Day Mortality After Elective GeneralSurgery”. Anesth Analg 2011; 113: 1423-8
+-   Sessler, Daniel I., et al. “Operation timing and 30-day mortality after elective general surgery.” Anesthesia &amp; Analgesia, vol. 113, no. 6, 2011, pp. 1423–1428, https://doi.org/10.1213/ane.0b013e3182315a6d. 
+
