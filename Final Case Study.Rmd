@@ -33,6 +33,10 @@ library(rstan)
 library(Stat2Data)
 suppressWarnings(library(kableExtra))
 library(kableExtra)
+library(caret)
+library(glmnet)
+library(pROC)
+library(PRROC)
 ```
 
 # Introduction
@@ -45,9 +49,9 @@ Given that the healthcare sector is one of high stakes that often demands medica
 
 These are the four main objectives of this case study (Sessler et al., 2011):
 
-1)    Is there any association between whether or not a patient's operation results in 30-day mortality and the time of the day in which the operation occurs? How about the day of the week?
+1)  Is there any association between whether or not a patient's operation results in 30-day mortality and the time of the day in which the operation occurs? How about the day of the week?
 
-2)    Is there any association between whether or not a patient experiences in-hospital complications and the time of day in which the operation occurs? How about the day of the day of the week?
+2)  Is there any association between whether or not a patient experiences in-hospital complications and the time of day in which the operation occurs? How about the day of the day of the week?
 
 Answering these objectives will help healthcare industry leaders better understand the possible critical risks of progression in time from morning to evening as well as progression in days of the week from Monday to Friday of surgeons on patient operation outcomes, particularly mortality and complication risks.
 
@@ -671,7 +675,6 @@ kable(output1, digits = 3, caption = "30-Day Mortality Model Coefficients/Summar
 
 The results of the model in which 30-day mortality is the response variable show that the only statistically significant predictors in the model are the Risk Stratification Index (30-day mortality), the Overall Incidence of 30-Day Mortality for each AHRQ-CCS Procedure Category, and the patient's age. This model shows that after adjusting for critical risk factors, the variability of whether a patient experiences 30-day mortality after a surgical case is not significantly explained by the day of the week or the hour in which the operation took place. In terms of the `hour` of operation coefficient, the model shows that for each additional hour in a workday, the log-odds of a patient experiencing 30-day mortality after an operation are expected to increase by 0.043, holding all other predictors constant. Furthermore, for each additional hour in a workday, the odds of a patient experiencing 30-day mortality after an operation are expected to multiply by a factor of approximately 1.044 (exp(0.043)) holding all other predictors constant. This means that the general odds a patient results in 30-day mortality does increase as the workday day progresses. Since the baseline for the `day of the week` variable is Friday, it is best to interpret the Monday coefficient to gauge the differences between the beginning of the week and the end of the week. The log-odds of a patient having 30-day mortality after an operation are expected to be 0.088 less on Mondays than on Fridays, holding other predictors constant. Furthermore, the odds of a patient having 30-day mortality on Mondays is expected be 0.916 (exp(-0.088)) times the odds of than on Fridays, holding all else constant. This means the odds of a patient having 30-day mortality are a bit lower in the beginning of the week than the end of the week.
 
-
 ```{r, echo=FALSE}
 set.seed(123)
 model2 <- glm(complication ~ complication_rsi+ccsComplicationRate+hour+dow+age+bmi+asa_status+baseline_charlson, data = modelData, family = "binomial")
@@ -705,10 +708,21 @@ The EDA of Image 15B) shows box plots of the relationship between the hour of op
 
 In terms of EDA Image 16B) shows bar plots of the relationship between the day of the week and the status of in-hospital complication. There looks to be a decreasing number of patients without in-hospital complication as the week goes on up until Friday. The visual also shows slight decreases in the number of patients without in-hospital complications as the week progresses besides on Wednesday (Appendix: Image 16B) The pattern in the number of patients without in-hospital complications aligns with the pattern in the total patient population by day of the week (Appendix:Image 10) as well as the pattern in percentages of the total patient population as seen in the *Summary Statistics of Case Frequencies* table above. But the pattern in the number of patients with in-hospital complications among the different days of the week display some differences to the total patient population. This means the EDA shows there is somewhat of a visible relationship between the in-hospital complications status and the day of the week. This aligns with the logistic regression model that shows Tuesday and Friday being statistically significant predictors of the variability of in-hospital complication where the odds of a patient experiencing in-hospital complication is lower on Tuesdays than on Fridays. Overall, this shows that there is a significant associations between the day of the week of the operation and whether or not a patient experiences in hospital complications.
 
-**Methodology Evaluation**
-- include accuracy tests of model
+**Methodology Evaluation** - include accuracy tests of model
 
 Was your methodology fully appropriate? What alternative techniques might have been useful?
+
+
+-   ROC curve
+
+-   AUC-PR curve
+
+-   Brier score
+
+
+```{r}
+
+```
 
 **Limitation**
 
@@ -1016,9 +1030,65 @@ cor_matrix %>%
   kable(digits = 3)
 ```
 
-## Work Cited
--   Alhola, Paula, and Päivi Polo-Kantola. “Sleep deprivation: Impact on cognitive performance.” Neuropsychiatric disease and treatment vol. 3,5 (2007): 553-67.
--   Džakula, Aleksandar, and Danko Relić. “Health workforce shortage - doing the right things or doing things right?.” Croatian Medical Journal vol. 63,2 (2022): 107-109. doi:10.3325/cmj.2022.63.107
--   Sessler et al.“Operation Timing and 30-Day Mortality After Elective GeneralSurgery”. Anesth Analg 2011; 113: 1423-8
--   Sessler, Daniel I., et al. “Operation timing and 30-day mortality after elective general surgery.” Anesthesia &amp; Analgesia, vol. 113, no. 6, 2011, pp. 1423–1428, https://doi.org/10.1213/ane.0b013e3182315a6d. 
+## Model Accuracy Check
 
+*Image 20A) Confusion Matrix and Summary Statistics for 30-Day Mortality Model*
+```{r, echo=FALSE}
+#30-DAY MORTALITY
+cleanedData <- na.omit(modelData)
+set.seed(123) 
+mort30_data <- cleanedData[, c("mortality_rsi","ccsMort30Rate","hour","dow","age","bmi","asa_status","baseline_charlson", "mort30")]
+index <- createDataPartition(mort30_data$mort30, p = 0.8, list = FALSE)
+train_mort30 <- mort30_data[index, ]
+test_mort30 <- mort30_data[-index, ]
+checkModel_mort30 <- glm(mort30 ~ mortality_rsi+ccsMort30Rate+hour+dow+age+bmi+asa_status+baseline_charlson, data = train_mort30, family = "binomial")
+predict_mort30 <- predict(checkModel_mort30, newdata = test_mort30, type = "response")
+
+#Confusion matrix
+predicted_classes_mort30 <- ifelse(predict_mort30> 0.5, 1, 0)
+
+# Create a confusion matrix 
+confMatrix_mort30 <- confusionMatrix(table(predicted_classes_mort30, test_mort30$mort30))
+print(confMatrix_mort30)
+```
+*Image 20B) Confusion Matrix and Summary Statistics for In-Hospital Complications*
+```{r, echo=FALSE}
+#IN-HOSPITAL COMPLICATIONS    
+set.seed(123) 
+complication_data <- cleanedData[, c("complication_rsi","ccsComplicationRate","hour","dow","age","bmi","asa_status","baseline_charlson", "complication")]
+index <- createDataPartition(complication_data$complication, p = 0.8, list = FALSE)
+train_complication <- complication_data[index, ]
+test_complication <- complication_data[-index, ]
+checkModel_complication <- glm(complication ~ complication_rsi+ccsComplicationRate+hour+dow+age+bmi+asa_status+baseline_charlson, data = train_complication, family = "binomial")
+predict_complication <- predict(checkModel_complication, newdata = test_complication, type = "response")
+
+#Confusion matrix
+predicted_classes_complication <- ifelse(predict_complication> 0.5, 1, 0)
+
+# Create a confusion matrix 
+confMatrix_complication <- confusionMatrix(table(predicted_classes_complication, test_complication$complication))
+print(confMatrix_complication)
+```
+*Image 21A) Precision-Recall (PR) curves) for 30-Day Mortality Model*
+
+```{r, echo=FALSE}
+predictProbs_mort30 <- predict(checkModel_mort30, type = "response")
+pr_curve1 <- pr.curve(train_mort30$mort30, predictProbs_mort30, curve = TRUE)
+plot(pr_curve1, main = "Precision-Recall Curve for 30-Day Mortality", col = "blue", lwd = 2)
+```
+
+*Image 21B) Precision-Recall (PR) curves for In-Hospital Complications*
+
+```{r, echo=FALSE}
+predictProbs_complication<- predict(checkModel_complication, type = "response")
+pr_curve2 <- pr.curve(train_complication$complication, predictProbs_complication, curve = TRUE)
+plot(pr_curve2, main = "Precision-Recall Curve for In-Hospital Complications", col = "red", lwd = 2)
+```
+
+
+## Work Cited
+
+-   Alhola, Paula, and Päivi Polo-Kantola. "Sleep deprivation: Impact on cognitive performance." Neuropsychiatric disease and treatment vol. 3,5 (2007): 553-67.
+-   Džakula, Aleksandar, and Danko Relić. "Health workforce shortage - doing the right things or doing things right?." Croatian Medical Journal vol. 63,2 (2022): 107-109. <doi:10.3325/cmj.2022.63.107>
+-   Sessler et al."Operation Timing and 30-Day Mortality After Elective GeneralSurgery". Anesth Analg 2011; 113: 1423-8
+-   Sessler, Daniel I., et al. "Operation timing and 30-day mortality after elective general surgery." Anesthesia & Analgesia, vol. 113, no. 6, 2011, pp. 1423--1428, <https://doi.org/10.1213/ane.0b013e3182315a6d>.
